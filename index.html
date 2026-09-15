@@ -361,9 +361,62 @@ placeholder="เลขที่	ชื่อนักเรียน	ห้อ�
 </div>
 
 <script>
-const SUPABASE_URL="https://aefzegkgfwszuiznihsk.supabase.co";
-const SUPABASE_KEY="sb_publishable_Z1zogpI9qqUlegxG816ncQ_eHeaiFvr";
-const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+/* =========================================================
+   SUPABASE CONNECTION — ตั้งค่าจุดเชื่อมต่อระบบใหม่
+   ========================================================= */
+const SUPABASE_CONFIG = {
+    url: "https://aefzegkgfwszuiznihsk.supabase.co",
+    publishableKey: "sb_publishable_Z1zogpI9qqUlegxG816ncQ_eHeaiFvr"
+};
+
+if (!window.supabase) {
+    alert("ไม่สามารถโหลด Supabase Client ได้ กรุณาตรวจสอบอินเทอร์เน็ต");
+    throw new Error("Supabase JS not loaded");
+}
+
+const db = window.supabase.createClient(
+    SUPABASE_CONFIG.url,
+    SUPABASE_CONFIG.publishableKey,
+    {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
+        }
+    }
+);
+
+// ตารางที่ระบบใช้
+const TABLES = {
+    payments: "payments",
+    dues: "payment_dues",
+    requests: "payment_requests"
+};
+
+/* =========================================================
+   RLS SQL (รันใน Supabase SQL Editor หากต้องการให้ระบบแอดมินลบ/แก้ไขได้)
+   หมายเหตุ: HTML ไม่สามารถปิด RLS ให้เองได้
+
+   create policy "admin_delete_payments" on public.payments
+   for delete to anon using (true);
+
+   create policy "admin_update_payments" on public.payments
+   for update to anon using (true) with check (true);
+
+   create policy "admin_insert_payments" on public.payments
+   for insert to anon with check (true);
+
+   create policy "admin_delete_payment_dues" on public.payment_dues
+   for delete to anon using (true);
+
+   create policy "admin_update_payment_requests" on public.payment_requests
+   for update to anon using (true) with check (true);
+
+   create policy "public_insert_payment_requests" on public.payment_requests
+   for insert to anon with check (true);
+
+   หากมี Policy ชื่อเดียวกันอยู่แล้ว ห้ามสร้างซ้ำ ให้แก้ Policy เดิมแทน
+   ========================================================= */
 
 const ADMIN_PASSWORD="123456";
 const PROMPTPAY_NUMBER="0614417784";
@@ -425,7 +478,7 @@ function generateReceipt(){
 async function loadPayments(){
     const table=document.getElementById("paymentTable");
     table.innerHTML='<tr><td colspan="9" class="empty">⏳ กำลังโหลดข้อมูล...</td></tr>';
-    const {data,error}=await db.from("payments").select("*").order("paid_at",{ascending:false});
+    const {data,error}=await db.from(TABLES.payments).select("*").order("paid_at",{ascending:false});
     if(error){
         table.innerHTML='<tr><td colspan="9" class="empty">❌ โหลดข้อมูลไม่สำเร็จ<br>'+escapeHtml(error.message)+'</td></tr>';
         return;
@@ -493,7 +546,7 @@ function renderAdminTable(){
 
 async function updatePaymentStatus(id,newStatus){
     if(!adminLoggedIn)return;
-    const {data,error}=await db.from("payments").update({status:newStatus}).eq("id",id).select();
+    const {data,error}=await db.from(TABLES.payments).update({status:newStatus}).eq("id",id).select();
     if(error){
         alert("อัปเดตสถานะไม่สำเร็จ: "+error.message);
         await loadPayments();
@@ -576,9 +629,9 @@ async function savePayment(){
     let response;
     const payload={student_name:name,student_number:number,class_name:className,payment_type:type,amount,payment_method:method,status:paymentStatus,note,paid_at:date?new Date(date).toISOString():new Date().toISOString()};
     if(editingId){
-        response=await db.from("payments").update(payload).eq("id",editingId).select().single();
+        response=await db.from(TABLES.payments).update(payload).eq("id",editingId).select().single();
     }else{
-        response=await db.from("payments").insert({...payload,receipt_no:generateReceipt()}).select().single();
+        response=await db.from(TABLES.payments).insert({...payload,receipt_no:generateReceipt()}).select().single();
     }
     button.disabled=false;button.textContent="💾 บันทึก";
     if(response.error){showStatus(status,response.error.message);return}
@@ -586,7 +639,7 @@ async function savePayment(){
 }
 
 function deletePayment(id){
-    if(!adminLoggedIn)return;
+    if(!adminLoggedIn || !confirm("ลบรายการนี้ใช่หรือไม่?"))return;
     const p=payments.find(x=>String(x.id)===String(id));
     if(!p)return;
     deletingId=id;
@@ -594,334 +647,35 @@ function deletePayment(id){
     openModal("deleteModal");
 }
 
-async function confirmDelete(){
-    if(!adminLoggedIn||!deletingId)return;
+async function confirmDeletePayment(){
+    if(!adminLoggedIn || !deletingId)return;
     const button=document.querySelector('#deleteModal .btn-danger');
     if(button){button.disabled=true;button.textContent="⏳ กำลังลบ...";}
-    const {data,error}=await db.from("payments").delete().eq("id",deletingId).select();
+
+    const result=await db.from(TABLES.payments).delete().eq("id",deletingId).select("id");
+
     if(button){button.disabled=false;button.textContent="🗑️ ยืนยันลบ";}
-    if(error){alert("ลบไม่สำเร็จ: "+error.message);return}
-    if(!data||!data.length){
-        alert("ลบไม่สำเร็จ: ไม่มีสิทธิ์ลบข้อมูลนี้ กรุณาตรวจสอบ RLS Policy (Delete) ของตาราง payments ใน Supabase ว่าอนุญาตให้ผู้ใช้ปัจจุบันลบข้อมูลได้");
+
+    if(result.error){
+        console.error("Supabase DELETE error:",result.error);
+        alert("ลบไม่สำเร็จ\n\n"+result.error.message+"\n\nถ้าข้อความเกี่ยวกับ RLS ให้สร้าง DELETE Policy ของตาราง payments ใน Supabase");
         return;
     }
-    deletingId=null;closeModal("deleteModal");await loadPayments();
-}
-
-async function openSelfPayment(){
-    clearSelfPaymentForm();
-    openModal("selfPaymentModal");
-    await loadSelfPaymentStudents();
-}
-
-function clearSelfPaymentForm(){
-    document.getElementById("payName").innerHTML='<option value="">-- เลือกชื่อนักเรียน --</option>';
-    ["payNumber","payClass","payAmount"].forEach(id=>document.getElementById(id).value="");
-    document.getElementById("payType").innerHTML='<option value="">-- เลือกชื่อก่อน --</option>';
-    document.getElementById("paymentSlip").value="";
-    document.getElementById("slipPreview").innerHTML="";
-    document.getElementById("qrSection").style.display="none";
-    document.getElementById("promptpayQR").innerHTML="";
-    document.getElementById("paymentStatus").className="status";
-    const b=document.getElementById("submitPaymentButton");b.disabled=false;b.textContent="💸 ส่งหลักฐานการชำระเงิน";
-}
-
-let selfPaymentStudents=[];
-let selectedSelfStudent=null;
-
-async function loadSelfPaymentStudents(){
-    const select=document.getElementById("payName");
-    select.innerHTML='<option value="">⏳ กำลังโหลดรายชื่อ...</option>';
-    const {data,error}=await db.from("payment_dues").select("student_name,student_number,class_name").order("student_name",{ascending:true});
-    if(error){select.innerHTML='<option value="">❌ โหลดรายชื่อไม่สำเร็จ</option>';showPaymentStatus("❌ ไม่สามารถโหลดรายชื่อนักเรียนได้: "+error.message);return}
-    const map=new Map();
-    (data||[]).forEach(d=>{
-        const key=[d.student_name||"",d.student_number||"",d.class_name||""].join("|");
-        if(d.student_name&&!map.has(key)) map.set(key,{name:d.student_name,number:d.student_number||"",className:d.class_name||""});
-    });
-    selfPaymentStudents=[...map.values()];
-    select.innerHTML='<option value="">-- เลือกชื่อนักเรียน --</option>'+selfPaymentStudents.map((s,i)=>`<option value="${i}">${escapeHtml(s.name)}${s.number?" • เลขที่ "+escapeHtml(s.number):""}</option>`).join("");
-}
-
-async function selectStudentForPayment(){
-    const idx=document.getElementById("payName").value;
-    const type=document.getElementById("payType");
-    document.getElementById("payNumber").value="";
-    document.getElementById("payClass").value="";
-    type.innerHTML='<option value="">-- กำลังโหลดรายการ... --</option>';
-    document.getElementById("payAmount").value="";
-    document.getElementById("qrSection").style.display="none";
-    if(idx===""){type.innerHTML='<option value="">-- เลือกชื่อก่อน --</option>';selectedSelfStudent=null;return}
-    selectedSelfStudent=selfPaymentStudents[Number(idx)];
-    document.getElementById("payNumber").value=selectedSelfStudent.number;
-    document.getElementById("payClass").value=selectedSelfStudent.className;
-    const {data,error}=await db.from("payment_dues").select("id,payment_type,amount,due_date").eq("student_name",selectedSelfStudent.name).eq("student_number",selectedSelfStudent.number).eq("class_name",selectedSelfStudent.className).order("due_date",{ascending:true});
-    if(error){type.innerHTML='<option value="">❌ โหลดรายการไม่สำเร็จ</option>';showPaymentStatus("❌ โหลดรายการชำระไม่สำเร็จ: "+error.message);return}
-    const rows=data||[];
-    if(!rows.length){type.innerHTML='<option value="">ไม่มีรายการที่ต้องชำระ</option>';return}
-    type.innerHTML='<option value="">-- เลือกรายการที่ต้องการชำระ --</option>'+rows.map(d=>`<option value="${escapeHtml(d.payment_type||"")}" data-amount="${Number(d.amount||0)}" data-due-id="${escapeHtml(d.id||"")}">${escapeHtml(d.payment_type||"รายการ") } — ${formatMoney(d.amount)} บาท${d.due_date?" • ครบกำหนด "+escapeHtml(d.due_date):""}</option>`).join("");
-}
-
-function changePaymentType(){
-    const select=document.getElementById("payType");
-    const option=select.options[select.selectedIndex];
-    const amount=Number(option.dataset.amount||0);
-    document.getElementById("payAmount").value=amount||"";
-    if(!amount){document.getElementById("qrSection").style.display="none";return}
-    document.getElementById("qrSection").style.display="block";
-    document.getElementById("qrAmount").textContent=formatMoney(amount);
-    generatePromptPayQR(PROMPTPAY_NUMBER,amount);
-}
-
-function generatePromptPayQR(phone,amount){
-    const qr=document.getElementById("promptpayQR");
-    qr.innerHTML="";
-    const payload=generatePromptPayPayload(phone,amount);
-    new QRCode(qr,{text:payload,width:230,height:230,correctLevel:QRCode.CorrectLevel.M});
-}
-
-function generatePromptPayPayload(phone,amount){
-    phone=phone.replace(/\D/g,"");
-    let target="0066"+phone.substring(1);
-    target=target.padStart(13,"0");
-    const merchantAccount="0016A000000677010111"+"0213"+target;
-    const merchantField="29"+String(merchantAccount.length).padStart(2,"0")+merchantAccount;
-    const amountText=Number(amount).toFixed(2);
-    const payload="000201"+"010212"+merchantField+"5802TH"+"5303764"+"54"+String(amountText.length).padStart(2,"0")+amountText+"6304";
-    return payload+crc16(payload);
-}
-
-function crc16(str){
-    let crc=0xFFFF;
-    for(let i=0;i<str.length;i++){
-        crc^=str.charCodeAt(i)<<8;
-        for(let j=0;j<8;j++){
-            crc=(crc&0x8000)?((crc<<1)^0x1021):(crc<<1);
-            crc&=0xFFFF;
-        }
-    }
-    return crc.toString(16).toUpperCase().padStart(4,"0");
-}
-
-document.getElementById("paymentSlip").addEventListener("change",function(){
-    const file=this.files[0];
-    const preview=document.getElementById("slipPreview");
-    preview.innerHTML="";
-    if(!file)return;
-    if(!file.type.startsWith("image/")){preview.textContent="❌ กรุณาเลือกไฟล์รูปภาพ";this.value="";return}
-    if(file.size>8*1024*1024){preview.textContent="❌ ไฟล์ต้องไม่เกิน 8 MB";this.value="";return}
-    const reader=new FileReader();
-    reader.onload=e=>{preview.innerHTML=`<img src="${e.target.result}" alt="ตัวอย่างสลิป">`};
-    reader.readAsDataURL(file);
-});
-
-async function submitSelfPayment(){
-    const name=selectedSelfStudent?.name||"";
-    const number=document.getElementById("payNumber").value.trim();
-    const className=document.getElementById("payClass").value.trim();
-    const type=document.getElementById("payType").value;
-    const amount=Number(document.getElementById("payAmount").value);
-    const slip=document.getElementById("paymentSlip").files[0];
-    const status=document.getElementById("paymentStatus");
-    if(!name){showPaymentStatus("❌ กรุณากรอกชื่อผู้ชำระเงิน");return}
-    if(!type||!amount){showPaymentStatus("❌ กรุณาเลือกรายการชำระเงิน");return}
-    if(!slip){showPaymentStatus("❌ กรุณาอัปโหลดสลิป");return}
-    if(slip.size>8*1024*1024){showPaymentStatus("❌ ไฟล์สลิปต้องมีขนาดไม่เกิน 8 MB");return}
-
-    const button=document.getElementById("submitPaymentButton");
-    button.disabled=true;button.textContent="⏳ กำลังส่งข้อมูล...";
-    try{
-        const extension=(slip.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
-        const filePath="slips/"+Date.now()+"_"+Math.random().toString(36).substring(2)+"."+extension;
-        const upload=await db.storage.from("payment-slips").upload(filePath,slip,{contentType:slip.type,upsert:false});
-        if(upload.error)throw upload.error;
-        const publicData=db.storage.from("payment-slips").getPublicUrl(filePath);
-        const receipt=generateReceipt();
-        const result=await db.from("payment_requests").insert({
-            receipt_no:receipt,student_name:name,student_number:number,class_name:className,
-            payment_type:type,amount,promptpay:PROMPTPAY_NUMBER,slip_url:publicData.data.publicUrl,status:"รอตรวจสอบ"
-        }).select().single();
-        if(result.error)throw result.error;
-        showPaymentStatus("✅ ส่งหลักฐานเรียบร้อยแล้ว เลขที่ "+receipt);
-        button.textContent="✅ ส่งเรียบร้อย";
-        await loadPaymentRequests();
-        setTimeout(()=>{closeModal("selfPaymentModal");button.disabled=false;button.textContent="💸 ส่งหลักฐานการชำระเงิน"},1800);
-    }catch(error){
-        console.error(error);
-        showPaymentStatus("❌ เกิดข้อผิดพลาด: "+error.message);
-        button.disabled=false;button.textContent="💸 ส่งหลักฐานการชำระเงิน";
-    }
-}
-
-function showPaymentStatus(message){showStatus(document.getElementById("paymentStatus"),message)}
-function showStatus(el,message){el.textContent=message;el.className="status show"}
-
-
-function normalizeDueDate(value){
-    if(!value) return "";
-    const v=String(value).trim();
-    // yyyy-mm-dd
-    if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(v)) return v;
-    // dd/mm/yyyy or dd-mm-yyyy (Thai Buddhist year is also accepted)
-    const m=v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-    if(m){
-        let y=Number(m[3]);
-        if(y>2400) y-=543;
-        return `${y}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
-    }
-    const d=new Date(v);
-    if(!isNaN(d)) return d.toISOString().slice(0,10);
-    return "";
-}
-
-function splitBulkLine(line){
-    if(line.includes("\t")) return line.split("\t");
-    if(line.includes("|")) return line.split("|");
-    return line.split(",");
-}
-
-function parseBulkData(){
-    const raw=(document.getElementById("bulkData")?.value||"").trim();
-    if(!raw) return [];
-    const lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-    if(!lines.length) return [];
-
-    const rows=lines.map(splitBulkLine).map(cols=>cols.map(x=>x.trim()));
-    const first=(rows[0]||[]).join(" ").toLowerCase();
-    const hasHeader=/เลขที่|student|name|ชื่อ|ห้อง|class|รายการ|payment|amount|จำนวนเงิน|กำหนด|due/.test(first);
-    if(hasHeader) rows.shift();
-
-    return rows.map((c,i)=>({
-        student_number:c[0]||"",
-        student_name:c[1]||"",
-        class_name:c[2]||"",
-        payment_type:c[3]||"เงินห้อง",
-        amount:Number(String(c[4]||"0").replace(/,/g,"").replace(/[^\d.-]/g,""))||0,
-        due_date:normalizeDueDate(c[5]||"")
-    })).filter(x=>x.student_name);
-}
-
-function statusForDue(due){
-    const matches=payments.filter(p=>{
-        const sameNumber=String(p.student_number||"").trim()===String(due.student_number||"").trim();
-        const sameName=String(p.student_name||"").trim()===String(due.student_name||"").trim();
-        const sameType=String(p.payment_type||"").trim()===String(due.payment_type||"").trim();
-        return sameType && (sameNumber ? sameNumber : sameName);
-    });
-    const paidAmount=matches.reduce((sum,p)=>sum+Number(p.amount||0),0);
-    const required=Number(due.amount||0);
-    if(required>0 && paidAmount>=required) return {text:"ชำระแล้ว",cls:"status-paid"};
-    const dueTime=due.due_date?new Date(due.due_date+"T23:59:59").getTime():NaN;
-    if(!isNaN(dueTime) && Date.now()>dueTime) return {text:"เกินกำหนด",cls:"status-overdue"};
-    return {text:"รอชำระ",cls:"status-unpaid"};
-}
-
-function renderBulkPreview(rows){
-    const el=document.getElementById("bulkPreview");
-    if(!el)return;
-    if(!rows.length){el.innerHTML='<div class="status show">ยังไม่พบข้อมูลที่นำเข้า</div>';return}
-    el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>เลขที่</th><th>ชื่อ</th><th>ห้อง</th><th>รายการ</th><th>ยอด</th><th>กำหนด</th></tr></thead><tbody>${
-        rows.slice(0,50).map(x=>`<tr>
-        <td>${escapeHtml(x.student_number||"-")}</td>
-        <td>${escapeHtml(x.student_name)}</td>
-        <td>${escapeHtml(x.class_name||"-")}</td>
-        <td>${escapeHtml(x.payment_type)}</td>
-        <td>฿${formatMoney(x.amount)}</td>
-        <td>${escapeHtml(x.due_date||"-")}</td>
-        </tr>`).join("")
-    }</tbody></table></div><div class="help-box">พบทั้งหมด <b>${rows.length}</b> รายการ${rows.length>50?" (แสดงตัวอย่าง 50 รายการแรก)":""}</div>`;
-}
-
-function previewBulkData(){
-    if(!adminLoggedIn)return;
-    const rows=parseBulkData();
-    renderBulkPreview(rows);
-}
-
-async function saveBulkData(){
-    if(!adminLoggedIn)return;
-    const rows=parseBulkData();
-    if(!rows.length){alert("กรุณาวางข้อมูลก่อน");return}
-    const invalid=rows.find(x=>!x.student_name || !x.payment_type || !(x.amount>0) || !x.due_date);
-    if(invalid){
-        alert("ข้อมูลไม่ครบ ต้องมี ชื่อนักเรียน / รายการ / จำนวนเงิน / กำหนดชำระ");
+    if(!result.data || result.data.length===0){
+        alert("ลบไม่สำเร็จ: Supabase ไม่คืนแถวที่ถูกลบ\n\nสาเหตุที่พบบ่อยคือ RLS Policy (DELETE) ไม่อนุญาตให้ role ปัจจุบันลบข้อมูล");
         return;
     }
-    const payload=rows.map(x=>({
-        student_number:x.student_number,
-        student_name:x.student_name,
-        class_name:x.class_name,
-        payment_type:x.payment_type,
-        amount:x.amount,
-        due_date:x.due_date
-    }));
-    const {error}=await db.from("payment_dues").upsert(payload,{onConflict:"student_number,payment_type"});
-    if(error){
-        alert("บันทึกไม่สำเร็จ: "+error.message+"\n\nตรวจสอบว่าคุณสร้างตาราง payment_dues แล้ว");
-        return;
-    }
-    alert(`บันทึกข้อมูลสำเร็จ ${rows.length} รายการ`);
-    document.getElementById("bulkData").value="";
-    document.getElementById("bulkPreview").innerHTML="";
-    await loadDueData();
-}
 
-async function loadDueData(){
-    if(!adminLoggedIn)return;
-    const table=document.getElementById("dueTable");
-    if(!table)return;
-    table.innerHTML='<tr><td colspan="8" class="empty">⏳ กำลังโหลด...</td></tr>';
-    const {data,error}=await db.from("payment_dues").select("*").order("due_date",{ascending:true});
-    if(error){
-        table.innerHTML='<tr><td colspan="8" class="empty">❌ '+escapeHtml(error.message)+'</td></tr>';
-        return;
-    }
-    paymentDues=data||[];
-    renderDueTable();
-}
-
-function renderDueTable(){
-    const table=document.getElementById("dueTable");
-    if(!table)return;
-    const search=(document.getElementById("dueSearch")?.value||"").toLowerCase().trim();
-    const result=paymentDues.filter(d=>[
-        d.student_number,d.student_name,d.class_name,d.payment_type,d.due_date
-    ].join(" ").toLowerCase().includes(search));
-    if(!result.length){
-        table.innerHTML='<tr><td colspan="8" class="empty">ยังไม่มีข้อมูลกำหนดชำระ</td></tr>';
-        return;
-    }
-    table.innerHTML=result.map(d=>{
-        const st=statusForDue(d);
-        return `<tr>
-        <td>${escapeHtml(d.student_number||"-")}</td>
-        <td>${escapeHtml(d.student_name)}</td>
-        <td>${escapeHtml(d.class_name||"-")}</td>
-        <td>${escapeHtml(d.payment_type)}</td>
-        <td>฿${formatMoney(d.amount)}</td>
-        <td>${escapeHtml(d.due_date||"-")}</td>
-        <td><span class="badge ${st.cls}">${st.text}</span></td>
-        <td><button class="btn btn-danger" onclick="deleteDue('${d.id}')">🗑️</button></td>
-        </tr>`;
-    }).join("");
-}
-
-async function deleteDue(id){
-    if(!adminLoggedIn || !confirm("ลบกำหนดชำระรายการนี้ใช่หรือไม่?"))return;
-    const {data,error}=await db.from("payment_dues").delete().eq("id",id).select();
-    if(error){alert("ลบไม่สำเร็จ: "+error.message);return}
-    if(!data||!data.length){
-        alert("ลบไม่สำเร็จ: ไม่มีสิทธิ์ลบข้อมูลนี้ กรุณาตรวจสอบ RLS Policy (Delete) ของตาราง payment_dues ใน Supabase");
-        return;
-    }
-    await loadDueData();
+    deletingId=null;
+    closeModal("deleteModal");
+    await loadPayments();
 }
 
 async function loadPaymentRequests(){
     if(!adminLoggedIn)return;
     const table=document.getElementById("requestTable");
     if(table)table.innerHTML='<tr><td colspan="7" class="empty">⏳ กำลังโหลด...</td></tr>';
-    const {data,error}=await db.from("payment_requests").select("*").order("created_at",{ascending:false});
+    const {data,error}=await db.from(TABLES.requests).select("*").order("created_at",{ascending:false});
     if(error){
         if(table)table.innerHTML='<tr><td colspan="7" class="empty">❌ '+escapeHtml(error.message)+'</td></tr>';
         return;
@@ -970,13 +724,13 @@ async function approveRequest(){
     const p=paymentRequests.find(x=>String(x.id)===String(selectedRequestId));
     if(!p)return;
     if(p.status!=="รอตรวจสอบ"){alert("รายการนี้ถูกจัดการแล้ว");return}
-    const {error}=await db.from("payments").insert({
+    const {error}=await db.from(TABLES.payments).insert({
         receipt_no:p.receipt_no,student_name:p.student_name,student_number:p.student_number||"",
         class_name:p.class_name||"",payment_type:p.payment_type,amount:Number(p.amount),
         payment_method:"พร้อมเพย์",note:"ชำระผ่านระบบด้วยตนเอง",paid_at:p.created_at
     });
     if(error){alert("นำเข้ารายการจ่ายไม่สำเร็จ: "+error.message);return}
-    const update=await db.from("payment_requests").update({status:"อนุมัติแล้ว"}).eq("id",p.id).select();
+    const update=await db.from(TABLES.requests).update({status:"อนุมัติแล้ว"}).eq("id",p.id).select();
     if(update.error){alert("บันทึกสถานะไม่สำเร็จ: "+update.error.message);return}
     if(!update.data||!update.data.length){alert("บันทึกสถานะไม่สำเร็จ: ไม่มีสิทธิ์แก้ไขข้อมูล กรุณาตรวจสอบ RLS Policy (Update) ของตาราง payment_requests");return}
     closeModal("requestModal");
@@ -987,7 +741,7 @@ async function approveRequest(){
 
 async function rejectRequest(){
     if(!adminLoggedIn||!selectedRequestId)return;
-    const {data,error}=await db.from("payment_requests").update({status:"ปฏิเสธ"}).eq("id",selectedRequestId).select();
+    const {data,error}=await db.from(TABLES.requests).update({status:"ปฏิเสธ"}).eq("id",selectedRequestId).select();
     if(error){alert("เปลี่ยนสถานะไม่สำเร็จ: "+error.message);return}
     if(!data||!data.length){alert("เปลี่ยนสถานะไม่สำเร็จ: ไม่มีสิทธิ์แก้ไขข้อมูล กรุณาตรวจสอบ RLS Policy (Update) ของตาราง payment_requests");return}
     closeModal("requestModal");
