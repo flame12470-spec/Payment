@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#6593c7">
+<title>ระบบการจ่ายเงิน</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;min-height:100%}
+body{font-family:"Kanit",sans-serif;color:#fff;overflow-x:hidden}
+.page{width:100%;min-height:100svh;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 25%,rgba(255,255,255,.17),transparent 38%),radial-gradient(circle at 50% 55%,rgba(255,255,255,.07),transparent 65%),#6593c7}
+.page:before{content:"";position:absolute;width:700px;height:700px;left:50%;top:35%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.14),rgba(255,255,255,.04) 35%,transparent 72%);filter:blur(35px);animation:bgPulse 5s ease-in-out infinite;pointer-events:none}
+.light{position:absolute;border-radius:50%;pointer-events:none;filter:blur(2px)}
+.light.one{width:190px;height:190px;left:-65px;top:-65px;background:rgba(255,255,255,.08)}
+.light.two{width:250px;height:250px;right:-100px;bottom:-100px;background:rgba(255,255,255,.08)}
+.light.three{width:90px;height:90px;right:14%;top:12%;background:rgba(255,255,255,.06)}
+.app{position:relative;z-index:10;width:min(94%,1100px);margin:auto;padding:25px 0 45px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo-box{width:58px;height:58px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(15px);-webkit-backdrop-filter:blur(15px);box-shadow:0 12px 35px rgba(0,0,0,.08),inset 0 1px 0 rgba(255,255,255,.2)}
+.logo-box img{width:48px;height:48px;object-fit:contain}
+.brand-title{font-size:21px;font-weight:700}.brand-sub{font-size:12px;opacity:.72}
+.top-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.admin-button{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff;padding:11px 15px;border-radius:14px;font-family:inherit;cursor:pointer;backdrop-filter:blur(15px);-webkit-backdrop-filter:blur(15px);transition:.2s}
+.admin-button:hover{background:rgba(255,255,255,.2)}
+.card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:24px;padding:22px;backdrop-filter:blur(18px) saturate(130%);-webkit-backdrop-filter:blur(18px) saturate(130%);box-shadow:0 20px 50px rgba(0,0,0,.08),inset 0 1px 0 rgba(255,255,255,.18)}
+.card-title{font-size:22px;font-weight:700}.card-description{margin-top:3px;font-size:13px;opacity:.75}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}
+.stat{padding:16px;border-radius:17px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16)}
+.stat-label{font-size:12px;opacity:.72}.stat-value{margin-top:3px;font-size:24px;font-weight:700}
+.toolbar{display:flex;gap:9px;margin-bottom:14px}
+.input{width:100%;padding:12px 14px;border-radius:13px;border:1px solid rgba(255,255,255,.23);background:rgba(255,255,255,.10);color:#fff;outline:none;font-family:inherit;font-size:14px}
+.input::placeholder{color:rgba(255,255,255,.65)}
+.input:focus{border-color:rgba(255,255,255,.55);background:rgba(255,255,255,.14)}
+.toolbar .input{flex:1}
+textarea.input{min-height:80px;resize:vertical}
+select.input option{color:#111;background:#fff}
+.table-wrap{overflow:auto;border-radius:16px}
+table{width:100%;min-width:850px;border-collapse:collapse}
+th,td{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.12);text-align:left;font-size:13px;white-space:nowrap}
+th{background:rgba(255,255,255,.08);font-weight:500}
+.amount{font-weight:700}.badge{display:inline-block;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.14);font-size:11px}
+button{font-family:inherit}.btn{border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.12);color:#fff;padding:10px 14px;border-radius:12px;cursor:pointer;transition:.2s}.btn:hover{background:rgba(255,255,255,.21)}.btn-primary{background:#fff;color:#4d75a1;font-weight:600}.btn-danger{background:rgba(220,60,60,.25);border-color:rgba(255,150,150,.25)}.btn-edit{background:rgba(255,255,255,.14)}.action{display:flex;gap:6px}
+.modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:15px;background:rgba(20,35,55,.45);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.modal.show{display:flex}.modal-box{width:min(100%,650px);max-height:92svh;overflow:auto;background:#6b98c9;border:1px solid rgba(255,255,255,.25);border-radius:24px;padding:22px;box-shadow:0 25px 70px rgba(0,0,0,.22)}
+.login-box{width:min(100%,380px)}.modal-title{font-size:22px;font-weight:700}.modal-sub{font-size:13px;opacity:.72;margin-top:2px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:15px}.field.full{grid-column:1/-1}.field label{display:block;font-size:12px;opacity:.8;margin-bottom:5px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}.password-wrap{position:relative}.password-wrap .input{padding-right:45px}.toggle-password{position:absolute;right:9px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:#fff;cursor:pointer}
+.status{display:none;padding:10px 13px;margin-top:11px;border-radius:12px;background:rgba(255,255,255,.13);font-size:13px}.status.show{display:block}
+.empty{text-align:center;padding:40px 15px;opacity:.65}
+.payment-info{margin-top:16px;padding:15px;border-radius:17px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.15)}
+.qr-wrap{display:none;text-align:center;margin-top:16px}.qr-box{display:inline-block;background:#fff;padding:14px;border-radius:18px}.prompt-number{font-size:20px;font-weight:700;letter-spacing:1px;margin-top:3px}.locked{font-size:11px;opacity:.7;margin-top:4px}
+.slip-preview img{max-width:240px;max-height:330px;border-radius:15px;margin-top:8px;border:1px solid rgba(255,255,255,.2)}
+.footer{text-align:center;margin-top:18px;font-size:11px;opacity:.45}
+.print-area{display:none}
+.status-paid{background:rgba(76,175,80,.20);border:1px solid rgba(76,175,80,.35);color:#d9ffdf}
+.status-unpaid{background:rgba(255,193,7,.18);border:1px solid rgba(255,193,7,.35);color:#fff0b0}
+.status-overdue{background:rgba(229,57,53,.20);border:1px solid rgba(229,57,53,.35);color:#ffd0ce}
+.bulk-textarea{width:100%;min-height:180px;resize:vertical;font:inherit}
+.help-box{padding:13px 15px;border-radius:15px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);font-size:13px;line-height:1.7;margin-top:12px}
+
+@media(max-width:700px){.app{width:94%;padding-top:15px}.topbar{align-items:flex-start}.brand-title{font-size:18px}.brand-sub{font-size:10px}.logo-box{width:50px;height:50px}.logo-box img{width:42px;height:42px}.top-actions{width:100%}.admin-button{padding:9px 11px;font-size:12px}.card{padding:16px;border-radius:20px}.stats{grid-template-columns:1fr}.toolbar{flex-direction:column}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}}
+@media print{@page{size:A4;margin:15mm}body{background:#fff!important;color:#000!important;overflow:visible}.page,.modal{display:none!important}.print-area{display:block!important;color:#000;font-family:"Kanit",sans-serif}.receipt{max-width:760px;margin:auto}.receipt-header{text-align:center;margin-bottom:25px}.receipt-header h1{font-size:25px;margin-bottom:4px}.receipt-header p{font-size:13px}.receipt-table{width:100%;border-collapse:collapse}.receipt-table td{padding:9px;border-bottom:1px solid #ddd;font-size:14px}.receipt-total{text-align:right;font-size:20px;font-weight:bold;margin-top:20px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:60px;text-align:center;margin-top:80px}}
+@keyframes bgPulse{0%,100%{opacity:.65}50%{opacity:1}}
+</style>
+</head>
+
+<body>
+
+<div class="page">
+<div class="light one"></div><div class="light two"></div><div class="light three"></div>
+
+<div class="app">
+
+<div class="topbar">
+<div class="brand">
+<div class="logo-box">
+<img src="https://i.postimg.cc/HJ75HTMD/Untitled-design.png" alt="Logo">
+</div>
+<div>
+<div class="brand-title">ระบบการจ่ายเงิน</div>
+<div class="brand-sub">ระบบจัดเก็บข้อมูลการชำระเงิน</div>
+</div>
+</div>
+
+<div class="top-actions">
+<button class="admin-button" onclick="openSelfPayment()">💸 ชำระเงิน</button>
+<button class="admin-button" onclick="openAdminLogin()">🔐 ผู้ดูแลระบบ</button>
+</div>
+</div>
+
+<div class="card">
+<div class="card-title">💳 รายการจ่ายเงิน</div>
+<div class="card-description">ข้อมูลการชำระเงินที่ได้รับการบันทึกแล้ว</div>
+
+<div class="stats">
+<div class="stat"><div class="stat-label">รายการทั้งหมด</div><div class="stat-value" id="totalCount">0</div></div>
+<div class="stat"><div class="stat-label">ยอดรวม</div><div class="stat-value" id="totalAmount">฿0.00</div></div>
+<div class="stat"><div class="stat-label">รายการล่าสุด</div><div class="stat-value" id="latest">-</div></div>
+</div>
+
+<div class="toolbar">
+<input class="input" id="search" placeholder="🔎 ค้นหาชื่อ เลขที่ ห้อง หรือรายการ" oninput="renderTable()">
+<button class="btn" onclick="loadPayments()">🔄 รีเฟรช</button>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th>เลขที่ใบรับเงิน</th><th>นักเรียน</th><th>เลขที่</th><th>ห้อง</th>
+<th>รายการ</th><th>จำนวนเงิน</th><th>วิธีจ่าย</th><th>วันที่</th><th>เอกสาร</th>
+</tr></thead>
+<tbody id="paymentTable"><tr><td colspan="9" class="empty">กำลังโหลดข้อมูล...</td></tr></tbody>
+</table>
+</div>
+</div>
+
+<div class="footer">ระบบจัดการข้อมูลการจ่ายเงิน • Supabase Database</div>
+</div>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div class="modal" id="loginModal">
+<div class="modal-box login-box">
+<div class="modal-title">🔐 ผู้ดูแลระบบ</div>
+<div class="modal-sub">กรุณาใส่รหัสผ่านเพื่อเข้าสู่การจัดการข้อมูล</div>
+<div style="margin-top:17px">
+<label style="display:block;font-size:12px;opacity:.8;margin-bottom:5px">รหัสผ่านแอดมิน</label>
+<div class="password-wrap">
+<input id="adminPassword" class="input" type="password" placeholder="กรอกรหัสผ่าน" onkeydown="if(event.key==='Enter')adminLogin()">
+<button class="toggle-password" onclick="togglePassword()">👁️</button>
+</div>
+<div id="loginStatus" class="status"></div>
+</div>
+<div class="modal-actions">
+<button class="btn" onclick="closeModal('loginModal')">ยกเลิก</button>
+<button class="btn btn-primary" onclick="adminLogin()">เข้าสู่ระบบ</button>
+</div>
+</div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="modal" id="adminModal">
+<div class="modal-box">
+<div class="modal-title">⚙️ จัดการข้อมูลแอดมิน</div>
+<div class="modal-sub">เพิ่ม แก้ไข ลบ ตรวจสอบสลิป และพิมพ์เอกสาร</div>
+
+<div class="stats">
+<div class="stat"><div class="stat-label">รายการจ่าย</div><div class="stat-value" id="adminCount">0</div></div>
+<div class="stat"><div class="stat-label">ยอดรวม</div><div class="stat-value" id="adminAmount">฿0.00</div></div>
+<div class="stat"><div class="stat-label">รอตรวจสอบ</div><div class="stat-value" id="pendingCount">0</div></div>
+</div>
+
+<div class="toolbar">
+<input class="input" id="adminSearch" placeholder="🔎 ค้นหารายการ..." oninput="renderAdminTable()">
+<select id="adminStatusFilter" class="input" style="max-width:180px" onchange="renderAdminTable()">
+<option value="">📋 ทุกสถานะ</option>
+<option value="ชำระแล้ว">✅ ชำระแล้ว</option>
+<option value="รอชำระเงิน">⏳ รอชำระเงิน</option>
+</select>
+<button class="btn btn-primary" onclick="openPaymentForm()">➕ เพิ่ม</button>
+<button class="btn" onclick="loadPayments();loadPaymentRequests()">🔄</button>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th>นักเรียน</th><th>รายการ</th><th>เงิน</th><th>สถานะ</th><th>สลิป</th><th>วันที่</th><th>จัดการ</th>
+</tr></thead>
+<tbody id="adminTable"><tr><td colspan="7" class="empty">กำลังโหลด...</td></tr></tbody>
+</table>
+</div>
+
+
+<div style="margin-top:28px;font-weight:600;font-size:18px">📋 นำเข้าข้อมูลหลายรายการในครั้งเดียว</div>
+<div class="modal-sub">วางข้อมูลนักเรียน/รายการที่ต้องชำระทีเดียว ระบบจะแยกคอลัมน์ให้อัตโนมัติ และคำนวณสถานะให้เอง</div>
+
+<div class="help-box">
+<b>รูปแบบที่แนะนำ:</b> เลขที่ | ชื่อนักเรียน | ห้อง | รายการ | จำนวนเงิน | กำหนดชำระ<br>
+ตัวอย่าง: <code>1 | นาย ก | ม.4/4 | เงินห้อง | 20 | 2026-09-30</code><br>
+รองรับตัวคั่น <b>Tab, | หรือ ,</b> และถ้ามีหัวตารางระบบจะข้ามหัวตารางให้อัตโนมัติ
+</div>
+
+<textarea id="bulkData" class="input bulk-textarea" style="margin-top:12px"
+placeholder="เลขที่	ชื่อนักเรียน	ห้อง	รายการ	จำนวนเงิน	กำหนดชำระ
+1	นาย ก	ม.4/4	เงินห้อง	20	2026-09-30
+2	นาย ข	ม.4/4	เงินห้อง	20	2026-09-30"></textarea>
+
+<div class="modal-actions" style="justify-content:flex-start;flex-wrap:wrap">
+<button class="btn btn-primary" onclick="previewBulkData()">👁️ ตรวจข้อมูลก่อนบันทึก</button>
+<button class="btn" onclick="saveBulkData()">💾 บันทึกทั้งหมด</button>
+<button class="btn" onclick="document.getElementById('bulkData').value='';document.getElementById('bulkPreview').innerHTML=''">🧹 ล้าง</button>
+</div>
+
+<div id="bulkPreview" style="margin-top:12px"></div>
+
+<div style="margin-top:28px;font-weight:600;font-size:18px">📊 สถานะการชำระเงิน</div>
+<div class="modal-sub">ชำระแล้ว / รอชำระ / เกินกำหนด จะคำนวณอัตโนมัติจากยอดที่บันทึกและวันครบกำหนด</div>
+<div class="toolbar">
+<input class="input" id="dueSearch" placeholder="🔎 ค้นหาชื่อ เลขที่ ห้อง หรือรายการ" oninput="renderDueTable()">
+<button class="btn" onclick="loadDueData()">🔄 รีเฟรชสถานะ</button>
+</div>
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th>เลขที่</th><th>นักเรียน</th><th>ห้อง</th><th>รายการ</th><th>ยอด</th><th>กำหนด</th><th>สถานะ</th><th>จัดการ</th>
+</tr></thead>
+<tbody id="dueTable"><tr><td colspan="8" class="empty">กำลังโหลด...</td></tr></tbody>
+</table>
+</div>
+
+<div style="margin-top:24px;font-weight:600;font-size:18px">📥 รายการชำระเงินด้วยตนเอง</div>
+<div class="modal-sub">ตรวจสอบสลิปและอนุมัติรายการก่อนนำเข้ารายการจ่ายเงิน</div>
+
+<div class="table-wrap" style="margin-top:10px">
+<table>
+<thead><tr>
+<th>เลขที่</th><th>ผู้ชำระ</th><th>รายการ</th><th>ยอด</th><th>สถานะ</th><th>สลิป</th><th>จัดการ</th>
+</tr></thead>
+<tbody id="requestTable"><tr><td colspan="7" class="empty">กำลังโหลด...</td></tr></tbody>
+</table>
+</div>
+
+<div class="modal-actions">
+<button class="btn" onclick="adminLogout()">ออกจากระบบ</button>
+<button class="btn btn-primary" onclick="closeModal('adminModal')">ปิด</button>
+</div>
+</div>
+</div>
+
+<!-- PAYMENT FORM -->
+<div class="modal" id="paymentModal">
+<div class="modal-box">
+<div class="modal-title" id="paymentFormTitle">➕ เพิ่มรายการจ่าย</div>
+<div class="modal-sub">ข้อมูลจะถูกบันทึกลง Supabase จริง</div>
+
+<div class="form-grid">
+<div class="field full"><label>ชื่อนักเรียน</label><input id="fName" class="input" placeholder="กรอกชื่อนักเรียน"></div>
+<div class="field"><label>เลขที่</label><input id="fNumber" class="input" placeholder="เช่น 11"></div>
+<div class="field"><label>ชั้น / ห้อง</label><input id="fClass" class="input" placeholder="เช่น ม.4/4"></div>
+<div class="field"><label>รายการ</label><select id="fType" class="input"><option value="เงินห้อง">เงินห้อง</option><option value="ค่ากีฬาสี">ค่ากีฬาสี</option><option value="กิจกรรม">กิจกรรม</option><option value="อื่น ๆ">อื่น ๆ</option></select></div>
+<div class="field"><label>จำนวนเงิน</label><input id="fAmount" class="input" type="number" min="0" step="0.01" placeholder="0.00"></div>
+<div class="field"><label>วิธีชำระ</label><select id="fMethod" class="input"><option value="เงินสด">เงินสด</option><option value="โอนเงิน">โอนเงิน</option><option value="อื่น ๆ">อื่น ๆ</option></select></div>
+<div class="field"><label>สถานะ</label><select id="fStatus" class="input"><option value="ชำระแล้ว">✅ ชำระแล้ว</option><option value="รอชำระเงิน">⏳ รอชำระเงิน</option></select></div>
+<div class="field"><label>วันที่</label><input id="fDate" class="input" type="datetime-local"></div>
+<div class="field full"><label>หมายเหตุ</label><textarea id="fNote" class="input" placeholder="หมายเหตุ"></textarea></div>
+</div>
+
+<div id="formStatus" class="status"></div>
+<div class="modal-actions">
+<button class="btn" onclick="closeModal('paymentModal')">ยกเลิก</button>
+<button class="btn btn-primary" onclick="savePayment()" id="savePaymentButton">💾 บันทึก</button>
+</div>
+</div>
+</div>
+
+<!-- SELF PAYMENT -->
+<div class="modal" id="selfPaymentModal">
+<div class="modal-box">
+<div class="modal-title">💸 ชำระเงินด้วยตนเอง</div>
+<div class="modal-sub">เลือกยอดเงิน → สแกน QR → อัปโหลดสลิป</div>
+
+<div class="form-grid">
+<div class="field full"><label>👤 เลือกชื่อนักเรียน</label><select id="payName" class="input" onchange="selectStudentForPayment()"><option value="">-- กำลังโหลดรายชื่อ... --</option></select><div class="locked">🔒 เลือกชื่อแล้ว เลขที่และห้องจะแสดงอัตโนมัติ</div></div>
+<div class="field"><label>เลขที่</label><input id="payNumber" class="input" readonly placeholder="ระบบแสดงอัตโนมัติ"></div>
+<div class="field"><label>ชั้น / ห้อง</label><input id="payClass" class="input" readonly placeholder="ระบบแสดงอัตโนมัติ"></div>
+
+<div class="field full">
+<label>💳 รายการที่ต้องการชำระ</label>
+<select id="payType" class="input" onchange="changePaymentType()"><option value="">-- เลือกชื่อก่อน --</option></select>
+</div>
+
+<div class="field full">
+<label>จำนวนเงิน</label>
+<input id="payAmount" class="input" type="number" readonly placeholder="เลือกช่องรายการก่อน">
+<div class="locked">🔒 จำนวนเงินถูกล็อกอัตโนมัติตามรายการ</div>
+</div>
+</div>
+
+<div class="qr-wrap" id="qrSection">
+<div style="font-size:14px;font-weight:500;margin-bottom:8px">📱 สแกน QR พร้อมเพย์</div>
+<div class="qr-box"><div id="promptpayQR"></div></div>
+<div style="margin-top:10px;font-size:13px;opacity:.8">พร้อมเพย์</div>
+<div class="prompt-number">0614417784</div>
+<div style="margin-top:5px;font-size:14px">จำนวนเงิน <b>฿<span id="qrAmount">0.00</span></b></div>
+</div>
+
+<div style="margin-top:18px">
+<label style="display:block;font-size:12px;margin-bottom:6px">📎 อัปโหลดสลิป</label>
+<input id="paymentSlip" type="file" accept="image/*" class="input">
+<div id="slipPreview" class="slip-preview"></div>
+</div>
+
+<div id="paymentStatus" class="status"></div>
+<div class="modal-actions">
+<button class="btn" onclick="closeModal('selfPaymentModal')">ยกเลิก</button>
+<button id="submitPaymentButton" class="btn btn-primary" onclick="submitSelfPayment()">💸 ส่งหลักฐานการชำระเงิน</button>
+</div>
+</div>
+</div>
+
+<!-- REQUEST DETAIL -->
+<div class="modal" id="requestModal">
+<div class="modal-box">
+<div class="modal-title">🔍 ตรวจสอบรายการ</div>
+<div id="requestDetail" class="payment-info"></div>
+<div id="requestSlip" style="text-align:center;margin-top:14px"></div>
+<div class="modal-actions">
+<button class="btn btn-danger" onclick="rejectRequest()">❌ ปฏิเสธ</button>
+<button class="btn btn-primary" onclick="approveRequest()">✅ อนุมัติ</button>
+<button class="btn" onclick="closeModal('requestModal')">ปิด</button>
+</div>
+</div>
+</div>
+
+<!-- DELETE -->
+<div class="modal" id="deleteModal">
+<div class="modal-box login-box">
+<div class="modal-title">🗑️ ลบรายการ</div>
+<div class="modal-sub">การลบจะมีผลกับข้อมูลในฐานข้อมูลจริง</div>
+<div id="deleteInfo" class="payment-info"></div>
+<div class="modal-actions">
+<button class="btn" onclick="closeModal('deleteModal')">ยกเลิก</button>
+<button class="btn btn-danger" onclick="confirmDelete()">🗑️ ยืนยันลบ</button>
+</div>
+</div>
+</div>
+
+<!-- PRINT -->
+<div class="print-area">
+<div class="receipt">
+<div class="receipt-header">
+<h1>ใบรับเงิน / หลักฐานการชำระเงิน</h1>
+<p>ระบบการจ่ายเงิน</p>
+</div>
+<table class="receipt-table">
+<tr><td><b>เลขที่ใบรับเงิน</b></td><td id="printReceipt"></td></tr>
+<tr><td><b>ชื่อนักเรียน</b></td><td id="printName"></td></tr>
+<tr><td><b>เลขที่</b></td><td id="printNumber"></td></tr>
+<tr><td><b>ชั้น / ห้อง</b></td><td id="printClass"></td></tr>
+<tr><td><b>รายการ</b></td><td id="printType"></td></tr>
+<tr><td><b>จำนวนเงิน</b></td><td id="printAmount"></td></tr>
+<tr><td><b>วิธีชำระ</b></td><td id="printMethod"></td></tr>
+<tr><td><b>วันที่</b></td><td id="printDate"></td></tr>
+<tr><td><b>หมายเหตุ</b></td><td id="printNote"></td></tr>
+</table>
+<div class="receipt-total">รวมทั้งสิ้น <span id="printTotal"></span> บาท</div>
+<div class="signatures">
+<div>ผู้รับเงิน<br><br><br>________________________</div>
+<div>ผู้ชำระเงิน<br><br><br>________________________</div>
+</div>
+</div>
+</div>
+
+<script>
+const SUPABASE_URL="https://aefzegkgfwszuiznihsk.supabase.co";
+const SUPABASE_KEY="sb_publishable_Z1zogpI9qqUlegxG816ncQ_eHeaiFvr";
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const ADMIN_PASSWORD="123456";
+const PROMPTPAY_NUMBER="0614417784";
+let adminLoggedIn=false;
+let payments=[];
+let paymentDues=[];
+let paymentRequests=[];
+let editingId=null;
+let deletingId=null;
+let selectedRequestId=null;
+
+const PAYMENT_RATES={
+    "เงินห้อง":20,
+    "ค่ากีฬาสี":50,
+    "กิจกรรม":30
+};
+
+function openModal(id){document.getElementById(id).classList.add("show")}
+function closeModal(id){document.getElementById(id).classList.remove("show")}
+
+function openAdminLogin(){
+    if(adminLoggedIn){openModal("adminModal");renderAdminTable();renderRequestTable();return}
+    document.getElementById("adminPassword").value="";
+    document.getElementById("loginStatus").className="status";
+    openModal("loginModal");
+}
+
+function adminLogin(){
+    const password=document.getElementById("adminPassword").value;
+    if(password!==ADMIN_PASSWORD){
+        const s=document.getElementById("loginStatus");
+        s.textContent="❌ รหัสผ่านไม่ถูกต้อง";
+        s.className="status show";
+        return;
+    }
+    adminLoggedIn=true;
+    closeModal("loginModal");
+    openModal("adminModal");
+    renderAdminTable();
+    renderRequestTable();
+}
+
+function adminLogout(){
+    adminLoggedIn=false;
+    closeModal("adminModal");
+}
+
+function togglePassword(){
+    const input=document.getElementById("adminPassword");
+    input.type=input.type==="password"?"text":"password";
+}
+
+function generateReceipt(){
+    const d=new Date();
+    const date=d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
+    return "PAY-"+date+"-"+Math.floor(10000+Math.random()*90000);
+}
+
+async function loadPayments(){
+    const table=document.getElementById("paymentTable");
+    table.innerHTML='<tr><td colspan="9" class="empty">⏳ กำลังโหลดข้อมูล...</td></tr>';
+    const {data,error}=await db.from("payments").select("*").order("paid_at",{ascending:false});
+    if(error){
+        table.innerHTML='<tr><td colspan="9" class="empty">❌ โหลดข้อมูลไม่สำเร็จ<br>'+escapeHtml(error.message)+'</td></tr>';
+        return;
+    }
+    payments=data||[];
+    renderTable();
+    renderAdminTable();
+    updateStats();
+    if(adminLoggedIn) loadDueData();
+}
+
+function renderTable(){
+    const table=document.getElementById("paymentTable");
+    const search=document.getElementById("search").value.toLowerCase().trim();
+    const result=payments.filter(p=>[p.receipt_no,p.student_name,p.student_number,p.class_name,p.payment_type,p.payment_method].join(" ").toLowerCase().includes(search));
+    if(!result.length){table.innerHTML='<tr><td colspan="9" class="empty">ยังไม่มีข้อมูล</td></tr>';return}
+    table.innerHTML=result.map(p=>`
+    <tr>
+    <td>${escapeHtml(p.receipt_no)}</td>
+    <td>${escapeHtml(p.student_name)}</td>
+    <td>${escapeHtml(p.student_number||"-")}</td>
+    <td>${escapeHtml(p.class_name||"-")}</td>
+    <td><span class="badge">${escapeHtml(p.payment_type)}</span></td>
+    <td class="amount">฿${formatMoney(p.amount)}</td>
+    <td>${escapeHtml(p.payment_method||"-")}</td>
+    <td>${formatDate(p.paid_at)}</td>
+    <td><button class="btn" onclick="printReceiptById('${p.id}')">🖨️</button></td>
+    </tr>`).join("");
+}
+
+function renderAdminTable(){
+    const table=document.getElementById("adminTable");
+    if(!table)return;
+    const search=(document.getElementById("adminSearch")?.value||"").toLowerCase().trim();
+    const statusFilter=document.getElementById("adminStatusFilter")?.value||"";
+    let result=payments.filter(p=>[p.receipt_no,p.student_name,p.student_number,p.class_name,p.payment_type].join(" ").toLowerCase().includes(search));
+    if(statusFilter) result=result.filter(p=>(p.status||"ชำระแล้ว")===statusFilter);
+    document.getElementById("adminCount").textContent=payments.length;
+    const total=payments.reduce((s,p)=>s+Number(p.amount||0),0);
+    document.getElementById("adminAmount").textContent="฿"+formatMoney(total);
+    if(!result.length){table.innerHTML='<tr><td colspan="7" class="empty">ไม่พบข้อมูล</td></tr>';return}
+    table.innerHTML=result.map(p=>{
+        const currentStatus=p.status||"ชำระแล้ว";
+        return `
+    <tr>
+    <td>${escapeHtml(p.student_name)}</td>
+    <td>${escapeHtml(p.payment_type)}</td>
+    <td>฿${formatMoney(p.amount)}</td>
+    <td>
+    <select class="input status-select ${currentStatus==="ชำระแล้ว"?"status-paid":"status-unpaid"}" style="padding:6px 8px;font-size:12px;width:auto" onchange="updatePaymentStatus('${p.id}',this.value)">
+    <option value="ชำระแล้ว" ${currentStatus==="ชำระแล้ว"?"selected":""}>✅ ชำระแล้ว</option>
+    <option value="รอชำระเงิน" ${currentStatus==="รอชำระเงิน"?"selected":""}>⏳ รอชำระเงิน</option>
+    </select>
+    </td>
+    <td>-</td>
+    <td>${formatDate(p.paid_at)}</td>
+    <td><div class="action">
+    <button class="btn btn-edit" onclick="editPayment('${p.id}')">✏️</button>
+    <button class="btn btn-danger" onclick="deletePayment('${p.id}')">🗑️</button>
+    <button class="btn" onclick="printReceiptById('${p.id}')">🖨️</button>
+    </div></td>
+    </tr>`;
+    }).join("");
+}
+
+async function updatePaymentStatus(id,newStatus){
+    if(!adminLoggedIn)return;
+    const {data,error}=await db.from("payments").update({status:newStatus}).eq("id",id).select();
+    if(error){
+        alert("อัปเดตสถานะไม่สำเร็จ: "+error.message);
+        await loadPayments();
+        return;
+    }
+    if(!data||!data.length){
+        alert("อัปเดตสถานะไม่สำเร็จ: ไม่มีสิทธิ์แก้ไขข้อมูล กรุณาตรวจสอบว่าตาราง payments มีคอลัมน์ 'status' และมี RLS Policy (Update) อนุญาตให้แก้ไขได้");
+        await loadPayments();
+        return;
+    }
+    await loadPayments();
+}
+
+function updateStats(){
+    document.getElementById("totalCount").textContent=payments.length;
+    const total=payments.reduce((s,p)=>s+Number(p.amount||0),0);
+    document.getElementById("totalAmount").textContent="฿"+formatMoney(total);
+    document.getElementById("latest").textContent=payments.length?formatDate(payments[0].paid_at):"-";
+}
+
+function openPaymentForm(){
+    if(!adminLoggedIn)return;
+    editingId=null;
+    document.getElementById("paymentFormTitle").textContent="➕ เพิ่มรายการจ่าย";
+    clearPaymentForm();
+    setDefaultDate();
+    openModal("paymentModal");
+}
+
+function clearPaymentForm(){
+    ["fName","fNumber","fClass","fAmount","fNote"].forEach(id=>document.getElementById(id).value="");
+    document.getElementById("fType").value="เงินห้อง";
+    document.getElementById("fMethod").value="เงินสด";
+    document.getElementById("fStatus").value="ชำระแล้ว";
+    document.getElementById("formStatus").className="status";
+}
+
+function setDefaultDate(){
+    const now=new Date();
+    document.getElementById("fDate").value=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+}
+
+function editPayment(id){
+    if(!adminLoggedIn)return;
+    const p=payments.find(x=>String(x.id)===String(id));
+    if(!p)return;
+    editingId=id;
+    document.getElementById("paymentFormTitle").textContent="✏️ แก้ไขรายการ";
+    document.getElementById("fName").value=p.student_name||"";
+    document.getElementById("fNumber").value=p.student_number||"";
+    document.getElementById("fClass").value=p.class_name||"";
+    document.getElementById("fType").value=p.payment_type||"เงินห้อง";
+    document.getElementById("fAmount").value=p.amount||"";
+    document.getElementById("fMethod").value=p.payment_method||"เงินสด";
+    document.getElementById("fStatus").value=p.status||"ชำระแล้ว";
+    document.getElementById("fNote").value=p.note||"";
+    if(p.paid_at){
+        const d=new Date(p.paid_at);
+        document.getElementById("fDate").value=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    }
+    openModal("paymentModal");
+}
+
+async function savePayment(){
+    if(!adminLoggedIn)return;
+    const name=document.getElementById("fName").value.trim();
+    const number=document.getElementById("fNumber").value.trim();
+    const className=document.getElementById("fClass").value.trim();
+    const type=document.getElementById("fType").value;
+    const amount=Number(document.getElementById("fAmount").value);
+    const method=document.getElementById("fMethod").value;
+    const paymentStatus=document.getElementById("fStatus").value;
+    const note=document.getElementById("fNote").value.trim();
+    const date=document.getElementById("fDate").value;
+    const status=document.getElementById("formStatus");
+    if(!name){showStatus(status,"กรุณากรอกชื่อนักเรียน");return}
+    if(!amount||amount<=0){showStatus(status,"กรุณากรอกจำนวนเงิน");return}
+    const button=document.getElementById("savePaymentButton");
+    button.disabled=true;button.textContent="⏳ กำลังบันทึก...";
+    let response;
+    const payload={student_name:name,student_number:number,class_name:className,payment_type:type,amount,payment_method:method,status:paymentStatus,note,paid_at:date?new Date(date).toISOString():new Date().toISOString()};
+    if(editingId){
+        response=await db.from("payments").update(payload).eq("id",editingId).select().single();
+    }else{
+        response=await db.from("payments").insert({...payload,receipt_no:generateReceipt()}).select().single();
+    }
+    button.disabled=false;button.textContent="💾 บันทึก";
+    if(response.error){showStatus(status,response.error.message);return}
+    closeModal("paymentModal");editingId=null;await loadPayments();
+}
+
+function deletePayment(id){
+    if(!adminLoggedIn)return;
+    const p=payments.find(x=>String(x.id)===String(id));
+    if(!p)return;
+    deletingId=id;
+    document.getElementById("deleteInfo").innerHTML=`<b>${escapeHtml(p.student_name)}</b><br>${escapeHtml(p.payment_type)}<br>฿${formatMoney(p.amount)}<br><small>${escapeHtml(p.receipt_no)}</small>`;
+    openModal("deleteModal");
+}
+
+async function confirmDelete(){
+    if(!adminLoggedIn||!deletingId)return;
+    const button=document.querySelector('#deleteModal .btn-danger');
+    if(button){button.disabled=true;button.textContent="⏳ กำลังลบ...";}
+    const {data,error}=await db.from("payments").delete().eq("id",deletingId).select();
+    if(button){button.disabled=false;button.textContent="🗑️ ยืนยันลบ";}
+    if(error){alert("ลบไม่สำเร็จ: "+error.message);return}
+    if(!data||!data.length){
+        alert("ลบไม่สำเร็จ: ไม่มีสิทธิ์ลบข้อมูลนี้ กรุณาตรวจสอบ RLS Policy (Delete) ของตาราง payments ใน Supabase ว่าอนุญาตให้ผู้ใช้ปัจจุบันลบข้อมูลได้");
+        return;
+    }
+    deletingId=null;closeModal("deleteModal");await loadPayments();
+}
+
+async function openSelfPayment(){
+    clearSelfPaymentForm();
+    openModal("selfPaymentModal");
+    await loadSelfPaymentStudents();
+}
+
+function clearSelfPaymentForm(){
+    document.getElementById("payName").innerHTML='<option value="">-- เลือกชื่อนักเรียน --</option>';
+    ["payNumber","payClass","payAmount"].forEach(id=>document.getElementById(id).value="");
+    document.getElementById("payType").innerHTML='<option value="">-- เลือกชื่อก่อน --</option>';
+    document.getElementById("paymentSlip").value="";
+    document.getElementById("slipPreview").innerHTML="";
+    document.getElementById("qrSection").style.display="none";
+    document.getElementById("promptpayQR").innerHTML="";
+    document.getElementById("paymentStatus").className="status";
+    const b=document.getElementById("submitPaymentButton");b.disabled=false;b.textContent="💸 ส่งหลักฐานการชำระเงิน";
+}
+
+let selfPaymentStudents=[];
+let selectedSelfStudent=null;
+
+async function loadSelfPaymentStudents(){
+    const select=document.getElementById("payName");
+    select.innerHTML='<option value="">⏳ กำลังโหลดรายชื่อ...</option>';
+    const {data,error}=await db.from("payment_dues").select("student_name,student_number,class_name").order("student_name",{ascending:true});
+    if(error){select.innerHTML='<option value="">❌ โหลดรายชื่อไม่สำเร็จ</option>';showPaymentStatus("❌ ไม่สามารถโหลดรายชื่อนักเรียนได้: "+error.message);return}
+    const map=new Map();
+    (data||[]).forEach(d=>{
+        const key=[d.student_name||"",d.student_number||"",d.class_name||""].join("|");
+        if(d.student_name&&!map.has(key)) map.set(key,{name:d.student_name,number:d.student_number||"",className:d.class_name||""});
+    });
+    selfPaymentStudents=[...map.values()];
+    select.innerHTML='<option value="">-- เลือกชื่อนักเรียน --</option>'+selfPaymentStudents.map((s,i)=>`<option value="${i}">${escapeHtml(s.name)}${s.number?" • เลขที่ "+escapeHtml(s.number):""}</option>`).join("");
+}
+
+async function selectStudentForPayment(){
+    const idx=document.getElementById("payName").value;
+    const type=document.getElementById("payType");
+    document.getElementById("payNumber").value="";
+    document.getElementById("payClass").value="";
+    type.innerHTML='<option value="">-- กำลังโหลดรายการ... --</option>';
+    document.getElementById("payAmount").value="";
+    document.getElementById("qrSection").style.display="none";
+    if(idx===""){type.innerHTML='<option value="">-- เลือกชื่อก่อน --</option>';selectedSelfStudent=null;return}
+    selectedSelfStudent=selfPaymentStudents[Number(idx)];
+    document.getElementById("payNumber").value=selectedSelfStudent.number;
+    document.getElementById("payClass").value=selectedSelfStudent.className;
+    const {data,error}=await db.from("payment_dues").select("id,payment_type,amount,due_date").eq("student_name",selectedSelfStudent.name).eq("student_number",selectedSelfStudent.number).eq("class_name",selectedSelfStudent.className).order("due_date",{ascending:true});
+    if(error){type.innerHTML='<option value="">❌ โหลดรายการไม่สำเร็จ</option>';showPaymentStatus("❌ โหลดรายการชำระไม่สำเร็จ: "+error.message);return}
+    const rows=data||[];
+    if(!rows.length){type.innerHTML='<option value="">ไม่มีรายการที่ต้องชำระ</option>';return}
+    type.innerHTML='<option value="">-- เลือกรายการที่ต้องการชำระ --</option>'+rows.map(d=>`<option value="${escapeHtml(d.payment_type||"")}" data-amount="${Number(d.amount||0)}" data-due-id="${escapeHtml(d.id||"")}">${escapeHtml(d.payment_type||"รายการ") } — ${formatMoney(d.amount)} บาท${d.due_date?" • ครบกำหนด "+escapeHtml(d.due_date):""}</option>`).join("");
+}
+
+function changePaymentType(){
+    const select=document.getElementById("payType");
+    const option=select.options[select.selectedIndex];
+    const amount=Number(option.dataset.amount||0);
+    document.getElementById("payAmount").value=amount||"";
+    if(!amount){document.getElementById("qrSection").style.display="none";return}
+    document.getElementById("qrSection").style.display="block";
+    document.getElementById("qrAmount").textContent=formatMoney(amount);
+    generatePromptPayQR(PROMPTPAY_NUMBER,amount);
+}
+
+function generatePromptPayQR(phone,amount){
+    const qr=document.getElementById("promptpayQR");
+    qr.innerHTML="";
+    const payload=generatePromptPayPayload(phone,amount);
+    new QRCode(qr,{text:payload,width:230,height:230,correctLevel:QRCode.CorrectLevel.M});
+}
+
+function generatePromptPayPayload(phone,amount){
+    phone=phone.replace(/\D/g,"");
+    let target="0066"+phone.substring(1);
+    target=target.padStart(13,"0");
+    const merchantAccount="0016A000000677010111"+"0213"+target;
+    const merchantField="29"+String(merchantAccount.length).padStart(2,"0")+merchantAccount;
+    const amountText=Number(amount).toFixed(2);
+    const payload="000201"+"010212"+merchantField+"5802TH"+"5303764"+"54"+String(amountText.length).padStart(2,"0")+amountText+"6304";
+    return payload+crc16(payload);
+}
+
+function crc16(str){
+    let crc=0xFFFF;
+    for(let i=0;i<str.length;i++){
+        crc^=str.charCodeAt(i)<<8;
+        for(let j=0;j<8;j++){
+            crc=(crc&0x8000)?((crc<<1)^0x1021):(crc<<1);
+            crc&=0xFFFF;
+        }
+    }
+    return crc.toString(16).toUpperCase().padStart(4,"0");
+}
+
+document.getElementById("paymentSlip").addEventListener("change",function(){
+    const file=this.files[0];
+    const preview=document.getElementById("slipPreview");
+    preview.innerHTML="";
+    if(!file)return;
+    if(!file.type.startsWith("image/")){preview.textContent="❌ กรุณาเลือกไฟล์รูปภาพ";this.value="";return}
+    if(file.size>8*1024*1024){preview.textContent="❌ ไฟล์ต้องไม่เกิน 8 MB";this.value="";return}
+    const reader=new FileReader();
+    reader.onload=e=>{preview.innerHTML=`<img src="${e.target.result}" alt="ตัวอย่างสลิป">`};
+    reader.readAsDataURL(file);
+});
+
+async function submitSelfPayment(){
+    const name=selectedSelfStudent?.name||"";
+    const number=document.getElementById("payNumber").value.trim();
+    const className=document.getElementById("payClass").value.trim();
+    const type=document.getElementById("payType").value;
+    const amount=Number(document.getElementById("payAmount").value);
+    const slip=document.getElementById("paymentSlip").files[0];
+    const status=document.getElementById("paymentStatus");
+    if(!name){showPaymentStatus("❌ กรุณากรอกชื่อผู้ชำระเงิน");return}
+    if(!type||!amount){showPaymentStatus("❌ กรุณาเลือกรายการชำระเงิน");return}
+    if(!slip){showPaymentStatus("❌ กรุณาอัปโหลดสลิป");return}
+    if(slip.size>8*1024*1024){showPaymentStatus("❌ ไฟล์สลิปต้องมีขนาดไม่เกิน 8 MB");return}
+
+    const button=document.getElementById("submitPaymentButton");
+    button.disabled=true;button.textContent="⏳ กำลังส่งข้อมูล...";
+    try{
+        const extension=(slip.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
+        const filePath="slips/"+Date.now()+"_"+Math.random().toString(36).substring(2)+"."+extension;
+        const upload=await db.storage.from("payment-slips").upload(filePath,slip,{contentType:slip.type,upsert:false});
+        if(upload.error)throw upload.error;
+        const publicData=db.storage.from("payment-slips").getPublicUrl(filePath);
+        const receipt=generateReceipt();
+        const result=await db.from("payment_requests").insert({
+            receipt_no:receipt,student_name:name,student_number:number,class_name:className,
+            payment_type:type,amount,promptpay:PROMPTPAY_NUMBER,slip_url:publicData.data.publicUrl,status:"รอตรวจสอบ"
+        }).select().single();
+        if(result.error)throw result.error;
+        showPaymentStatus("✅ ส่งหลักฐานเรียบร้อยแล้ว เลขที่ "+receipt);
+        button.textContent="✅ ส่งเรียบร้อย";
+        await loadPaymentRequests();
+        setTimeout(()=>{closeModal("selfPaymentModal");button.disabled=false;button.textContent="💸 ส่งหลักฐานการชำระเงิน"},1800);
+    }catch(error){
+        console.error(error);
+        showPaymentStatus("❌ เกิดข้อผิดพลาด: "+error.message);
+        button.disabled=false;button.textContent="💸 ส่งหลักฐานการชำระเงิน";
+    }
+}
+
+function showPaymentStatus(message){showStatus(document.getElementById("paymentStatus"),message)}
+function showStatus(el,message){el.textContent=message;el.className="status show"}
+
+
+function normalizeDueDate(value){
+    if(!value) return "";
+    const v=String(value).trim();
+    // yyyy-mm-dd
+    if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(v)) return v;
+    // dd/mm/yyyy or dd-mm-yyyy (Thai Buddhist year is also accepted)
+    const m=v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if(m){
+        let y=Number(m[3]);
+        if(y>2400) y-=543;
+        return `${y}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+    }
+    const d=new Date(v);
+    if(!isNaN(d)) return d.toISOString().slice(0,10);
+    return "";
+}
+
+function splitBulkLine(line){
+    if(line.includes("\t")) return line.split("\t");
+    if(line.includes("|")) return line.split("|");
+    return line.split(",");
+}
+
+function parseBulkData(){
+    const raw=(document.getElementById("bulkData")?.value||"").trim();
+    if(!raw) return [];
+    const lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    if(!lines.length) return [];
+
+    const rows=lines.map(splitBulkLine).map(cols=>cols.map(x=>x.trim()));
+    const first=(rows[0]||[]).join(" ").toLowerCase();
+    const hasHeader=/เลขที่|student|name|ชื่อ|ห้อง|class|รายการ|payment|amount|จำนวนเงิน|กำหนด|due/.test(first);
+    if(hasHeader) rows.shift();
+
+    return rows.map((c,i)=>({
+        student_number:c[0]||"",
+        student_name:c[1]||"",
+        class_name:c[2]||"",
+        payment_type:c[3]||"เงินห้อง",
+        amount:Number(String(c[4]||"0").replace(/,/g,"").replace(/[^\d.-]/g,""))||0,
+        due_date:normalizeDueDate(c[5]||"")
+    })).filter(x=>x.student_name);
+}
+
+function statusForDue(due){
+    const matches=payments.filter(p=>{
+        const sameNumber=String(p.student_number||"").trim()===String(due.student_number||"").trim();
+        const sameName=String(p.student_name||"").trim()===String(due.student_name||"").trim();
+        const sameType=String(p.payment_type||"").trim()===String(due.payment_type||"").trim();
+        return sameType && (sameNumber ? sameNumber : sameName);
+    });
+    const paidAmount=matches.reduce((sum,p)=>sum+Number(p.amount||0),0);
+    const required=Number(due.amount||0);
+    if(required>0 && paidAmount>=required) return {text:"ชำระแล้ว",cls:"status-paid"};
+    const dueTime=due.due_date?new Date(due.due_date+"T23:59:59").getTime():NaN;
+    if(!isNaN(dueTime) && Date.now()>dueTime) return {text:"เกินกำหนด",cls:"status-overdue"};
+    return {text:"รอชำระ",cls:"status-unpaid"};
+}
+
+function renderBulkPreview(rows){
+    const el=document.getElementById("bulkPreview");
+    if(!el)return;
+    if(!rows.length){el.innerHTML='<div class="status show">ยังไม่พบข้อมูลที่นำเข้า</div>';return}
+    el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>เลขที่</th><th>ชื่อ</th><th>ห้อง</th><th>รายการ</th><th>ยอด</th><th>กำหนด</th></tr></thead><tbody>${
+        rows.slice(0,50).map(x=>`<tr>
+        <td>${escapeHtml(x.student_number||"-")}</td>
+        <td>${escapeHtml(x.student_name)}</td>
+        <td>${escapeHtml(x.class_name||"-")}</td>
+        <td>${escapeHtml(x.payment_type)}</td>
+        <td>฿${formatMoney(x.amount)}</td>
+        <td>${escapeHtml(x.due_date||"-")}</td>
+        </tr>`).join("")
+    }</tbody></table></div><div class="help-box">พบทั้งหมด <b>${rows.length}</b> รายการ${rows.length>50?" (แสดงตัวอย่าง 50 รายการแรก)":""}</div>`;
+}
+
+function previewBulkData(){
+    if(!adminLoggedIn)return;
+    const rows=parseBulkData();
+    renderBulkPreview(rows);
+}
+
+async function saveBulkData(){
+    if(!adminLoggedIn)return;
+    const rows=parseBulkData();
+    if(!rows.length){alert("กรุณาวางข้อมูลก่อน");return}
+    const invalid=rows.find(x=>!x.student_name || !x.payment_type || !(x.amount>0) || !x.due_date);
+    if(invalid){
+        alert("ข้อมูลไม่ครบ ต้องมี ชื่อนักเรียน / รายการ / จำนวนเงิน / กำหนดชำระ");
+        return;
+    }
+    const payload=rows.map(x=>({
+        student_number:x.student_number,
+        student_name:x.student_name,
+        class_name:x.class_name,
+        payment_type:x.payment_type,
+        amount:x.amount,
+        due_date:x.due_date
+    }));
+    const {error}=await db.from("payment_dues").upsert(payload,{onConflict:"student_number,payment_type"});
+    if(error){
+        alert("บันทึกไม่สำเร็จ: "+error.message+"\n\nตรวจสอบว่าคุณสร้างตาราง payment_dues แล้ว");
+        return;
+    }
+    alert(`บันทึกข้อมูลสำเร็จ ${rows.length} รายการ`);
+    document.getElementById("bulkData").value="";
+    document.getElementById("bulkPreview").innerHTML="";
+    await loadDueData();
+}
+
+async function loadDueData(){
+    if(!adminLoggedIn)return;
+    const table=document.getElementById("dueTable");
+    if(!table)return;
+    table.innerHTML='<tr><td colspan="8" class="empty">⏳ กำลังโหลด...</td></tr>';
+    const {data,error}=await db.from("payment_dues").select("*").order("due_date",{ascending:true});
+    if(error){
+        table.innerHTML='<tr><td colspan="8" class="empty">❌ '+escapeHtml(error.message)+'</td></tr>';
+        return;
+    }
+    paymentDues=data||[];
+    renderDueTable();
+}
+
+function renderDueTable(){
+    const table=document.getElementById("dueTable");
+    if(!table)return;
+    const search=(document.getElementById("dueSearch")?.value||"").toLowerCase().trim();
+    const result=paymentDues.filter(d=>[
+        d.student_number,d.student_name,d.class_name,d.payment_type,d.due_date
+    ].join(" ").toLowerCase().includes(search));
+    if(!result.length){
+        table.innerHTML='<tr><td colspan="8" class="empty">ยังไม่มีข้อมูลกำหนดชำระ</td></tr>';
+        return;
+    }
+    table.innerHTML=result.map(d=>{
+        const st=statusForDue(d);
+        return `<tr>
+        <td>${escapeHtml(d.student_number||"-")}</td>
+        <td>${escapeHtml(d.student_name)}</td>
+        <td>${escapeHtml(d.class_name||"-")}</td>
+        <td>${escapeHtml(d.payment_type)}</td>
+        <td>฿${formatMoney(d.amount)}</td>
+        <td>${escapeHtml(d.due_date||"-")}</td>
+        <td><span class="badge ${st.cls}">${st.text}</span></td>
+        <td><button class="btn btn-danger" onclick="deleteDue('${d.id}')">🗑️</button></td>
+        </tr>`;
+    }).join("");
+}
+
+async function deleteDue(id){
+    if(!adminLoggedIn || !confirm("ลบกำหนดชำระรายการนี้ใช่หรือไม่?"))return;
+    const {data,error}=await db.from("payment_dues").delete().eq("id",id).select();
+    if(error){alert("ลบไม่สำเร็จ: "+error.message);return}
+    if(!data||!data.length){
+        alert("ลบไม่สำเร็จ: ไม่มีสิทธิ์ลบข้อมูลนี้ กรุณาตรวจสอบ RLS Policy (Delete) ของตาราง payment_dues ใน Supabase");
+        return;
+    }
+    await loadDueData();
+}
+
+async function loadPaymentRequests(){
+    if(!adminLoggedIn)return;
+    const table=document.getElementById("requestTable");
+    if(table)table.innerHTML='<tr><td colspan="7" class="empty">⏳ กำลังโหลด...</td></tr>';
+    const {data,error}=await db.from("payment_requests").select("*").order("created_at",{ascending:false});
+    if(error){
+        if(table)table.innerHTML='<tr><td colspan="7" class="empty">❌ '+escapeHtml(error.message)+'</td></tr>';
+        return;
+    }
+    paymentRequests=data||[];
+    document.getElementById("pendingCount").textContent=paymentRequests.filter(x=>x.status==="รอตรวจสอบ").length;
+    renderRequestTable();
+}
+
+function renderRequestTable(){
+    const table=document.getElementById("requestTable");
+    if(!table)return;
+    if(!paymentRequests.length){table.innerHTML='<tr><td colspan="7" class="empty">ยังไม่มีรายการชำระเงินด้วยตนเอง</td></tr>';return}
+    table.innerHTML=paymentRequests.map(p=>`
+    <tr>
+    <td>${escapeHtml(p.receipt_no)}</td>
+    <td>${escapeHtml(p.student_name)}</td>
+    <td>${escapeHtml(p.payment_type)}</td>
+    <td>฿${formatMoney(p.amount)}</td>
+    <td><span class="badge">${escapeHtml(p.status)}</span></td>
+    <td>${p.slip_url?`<button class="btn" onclick="viewRequest('${p.id}')">👁️ ดู</button>`:"-"}</td>
+    <td><button class="btn" onclick="viewRequest('${p.id}')">จัดการ</button></td>
+    </tr>`).join("");
+}
+
+function viewRequest(id){
+    if(!adminLoggedIn)return;
+    const p=paymentRequests.find(x=>String(x.id)===String(id));
+    if(!p)return;
+    selectedRequestId=id;
+    document.getElementById("requestDetail").innerHTML=`
+    <b>${escapeHtml(p.student_name)}</b><br>
+    เลขที่: ${escapeHtml(p.student_number||"-")}<br>
+    ห้อง: ${escapeHtml(p.class_name||"-")}<br>
+    รายการ: ${escapeHtml(p.payment_type)}<br>
+    จำนวนเงิน: <b>฿${formatMoney(p.amount)}</b><br>
+    พร้อมเพย์: ${escapeHtml(p.promptpay||PROMPTPAY_NUMBER)}<br>
+    สถานะ: ${escapeHtml(p.status)}<br>
+    วันที่: ${formatDate(p.created_at)}`;
+    document.getElementById("requestSlip").innerHTML=p.slip_url?`<a href="${escapeAttr(p.slip_url)}" target="_blank" rel="noopener"><img src="${escapeAttr(p.slip_url)}" style="max-width:280px;max-height:420px;border-radius:15px;border:1px solid rgba(255,255,255,.2)"></a>`:"ไม่มีสลิป";
+    openModal("requestModal");
+}
+
+async function approveRequest(){
+    if(!adminLoggedIn||!selectedRequestId)return;
+    const p=paymentRequests.find(x=>String(x.id)===String(selectedRequestId));
+    if(!p)return;
+    if(p.status!=="รอตรวจสอบ"){alert("รายการนี้ถูกจัดการแล้ว");return}
+    const {error}=await db.from("payments").insert({
+        receipt_no:p.receipt_no,student_name:p.student_name,student_number:p.student_number||"",
+        class_name:p.class_name||"",payment_type:p.payment_type,amount:Number(p.amount),
+        payment_method:"พร้อมเพย์",note:"ชำระผ่านระบบด้วยตนเอง",paid_at:p.created_at
+    });
+    if(error){alert("นำเข้ารายการจ่ายไม่สำเร็จ: "+error.message);return}
+    const update=await db.from("payment_requests").update({status:"อนุมัติแล้ว"}).eq("id",p.id).select();
+    if(update.error){alert("บันทึกสถานะไม่สำเร็จ: "+update.error.message);return}
+    if(!update.data||!update.data.length){alert("บันทึกสถานะไม่สำเร็จ: ไม่มีสิทธิ์แก้ไขข้อมูล กรุณาตรวจสอบ RLS Policy (Update) ของตาราง payment_requests");return}
+    closeModal("requestModal");
+    await loadPayments();
+    await loadPaymentRequests();
+    await loadDueData();
+}
+
+async function rejectRequest(){
+    if(!adminLoggedIn||!selectedRequestId)return;
+    const {data,error}=await db.from("payment_requests").update({status:"ปฏิเสธ"}).eq("id",selectedRequestId).select();
+    if(error){alert("เปลี่ยนสถานะไม่สำเร็จ: "+error.message);return}
+    if(!data||!data.length){alert("เปลี่ยนสถานะไม่สำเร็จ: ไม่มีสิทธิ์แก้ไขข้อมูล กรุณาตรวจสอบ RLS Policy (Update) ของตาราง payment_requests");return}
+    closeModal("requestModal");
+    await loadPaymentRequests();
+}
+
+function printReceiptById(id){
+    const p=payments.find(x=>String(x.id)===String(id));
+    if(p)printReceipt(p);
+}
+
+function printReceipt(p){
+    document.getElementById("printReceipt").textContent=p.receipt_no||"-";
+    document.getElementById("printName").textContent=p.student_name||"-";
+    document.getElementById("printNumber").textContent=p.student_number||"-";
+    document.getElementById("printClass").textContent=p.class_name||"-";
+    document.getElementById("printType").textContent=p.payment_type||"-";
+    document.getElementById("printAmount").textContent=formatMoney(p.amount)+" บาท";
+    document.getElementById("printTotal").textContent=formatMoney(p.amount);
+    document.getElementById("printMethod").textContent=p.payment_method||"-";
+    document.getElementById("printDate").textContent=formatDate(p.paid_at);
+    document.getElementById("printNote").textContent=p.note||"-";
+    setTimeout(()=>window.print(),150);
+}
+
+function formatMoney(value){return Number(value||0).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function formatDate(value){if(!value)return"-";return new Date(value).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})}
+function escapeHtml(value){return String(value??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+function escapeAttr(value){return escapeHtml(value).replaceAll("`","&#096;")}
+
+document.querySelectorAll(".modal").forEach(modal=>modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.remove("show")}));
+
+loadPayments();
+</script>
+</body>
+</html>
