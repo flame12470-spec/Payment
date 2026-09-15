@@ -61,6 +61,12 @@ button{font-family:inherit}.btn{border:1px solid rgba(255,255,255,.2);background
 .slip-preview img{max-width:240px;max-height:330px;border-radius:15px;margin-top:8px;border:1px solid rgba(255,255,255,.2)}
 .footer{text-align:center;margin-top:18px;font-size:11px;opacity:.45}
 .print-area{display:none}
+.status-paid{background:rgba(76,175,80,.20);border:1px solid rgba(76,175,80,.35);color:#d9ffdf}
+.status-unpaid{background:rgba(255,193,7,.18);border:1px solid rgba(255,193,7,.35);color:#fff0b0}
+.status-overdue{background:rgba(229,57,53,.20);border:1px solid rgba(229,57,53,.35);color:#ffd0ce}
+.bulk-textarea{width:100%;min-height:180px;resize:vertical;font:inherit}
+.help-box{padding:13px 15px;border-radius:15px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);font-size:13px;line-height:1.7;margin-top:12px}
+
 @media(max-width:700px){.app{width:94%;padding-top:15px}.topbar{align-items:flex-start}.brand-title{font-size:18px}.brand-sub{font-size:10px}.logo-box{width:50px;height:50px}.logo-box img{width:42px;height:42px}.top-actions{width:100%}.admin-button{padding:9px 11px;font-size:12px}.card{padding:16px;border-radius:20px}.stats{grid-template-columns:1fr}.toolbar{flex-direction:column}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}}
 @media print{@page{size:A4;margin:15mm}body{background:#fff!important;color:#000!important;overflow:visible}.page,.modal{display:none!important}.print-area{display:block!important;color:#000;font-family:"Kanit",sans-serif}.receipt{max-width:760px;margin:auto}.receipt-header{text-align:center;margin-bottom:25px}.receipt-header h1{font-size:25px;margin-bottom:4px}.receipt-header p{font-size:13px}.receipt-table{width:100%;border-collapse:collapse}.receipt-table td{padding:9px;border-bottom:1px solid #ddd;font-size:14px}.receipt-total{text-align:right;font-size:20px;font-weight:bold;margin-top:20px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:60px;text-align:center;margin-top:80px}}
 @keyframes bgPulse{0%,100%{opacity:.65}50%{opacity:1}}
@@ -165,6 +171,44 @@ button{font-family:inherit}.btn{border:1px solid rgba(255,255,255,.2);background
 <th>นักเรียน</th><th>รายการ</th><th>เงิน</th><th>สถานะ</th><th>สลิป</th><th>วันที่</th><th>จัดการ</th>
 </tr></thead>
 <tbody id="adminTable"><tr><td colspan="7" class="empty">กำลังโหลด...</td></tr></tbody>
+</table>
+</div>
+
+
+<div style="margin-top:28px;font-weight:600;font-size:18px">📋 นำเข้าข้อมูลหลายรายการในครั้งเดียว</div>
+<div class="modal-sub">วางข้อมูลนักเรียน/รายการที่ต้องชำระทีเดียว ระบบจะแยกคอลัมน์ให้อัตโนมัติ และคำนวณสถานะให้เอง</div>
+
+<div class="help-box">
+<b>รูปแบบที่แนะนำ:</b> เลขที่ | ชื่อนักเรียน | ห้อง | รายการ | จำนวนเงิน | กำหนดชำระ<br>
+ตัวอย่าง: <code>1 | นาย ก | ม.4/4 | เงินห้อง | 20 | 2026-09-30</code><br>
+รองรับตัวคั่น <b>Tab, | หรือ ,</b> และถ้ามีหัวตารางระบบจะข้ามหัวตารางให้อัตโนมัติ
+</div>
+
+<textarea id="bulkData" class="input bulk-textarea" style="margin-top:12px"
+placeholder="เลขที่	ชื่อนักเรียน	ห้อง	รายการ	จำนวนเงิน	กำหนดชำระ
+1	นาย ก	ม.4/4	เงินห้อง	20	2026-09-30
+2	นาย ข	ม.4/4	เงินห้อง	20	2026-09-30"></textarea>
+
+<div class="modal-actions" style="justify-content:flex-start;flex-wrap:wrap">
+<button class="btn btn-primary" onclick="previewBulkData()">👁️ ตรวจข้อมูลก่อนบันทึก</button>
+<button class="btn" onclick="saveBulkData()">💾 บันทึกทั้งหมด</button>
+<button class="btn" onclick="document.getElementById('bulkData').value='';document.getElementById('bulkPreview').innerHTML=''">🧹 ล้าง</button>
+</div>
+
+<div id="bulkPreview" style="margin-top:12px"></div>
+
+<div style="margin-top:28px;font-weight:600;font-size:18px">📊 สถานะการชำระเงิน</div>
+<div class="modal-sub">ชำระแล้ว / รอชำระ / เกินกำหนด จะคำนวณอัตโนมัติจากยอดที่บันทึกและวันครบกำหนด</div>
+<div class="toolbar">
+<input class="input" id="dueSearch" placeholder="🔎 ค้นหาชื่อ เลขที่ ห้อง หรือรายการ" oninput="renderDueTable()">
+<button class="btn" onclick="loadDueData()">🔄 รีเฟรชสถานะ</button>
+</div>
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th>เลขที่</th><th>นักเรียน</th><th>ห้อง</th><th>รายการ</th><th>ยอด</th><th>กำหนด</th><th>สถานะ</th><th>จัดการ</th>
+</tr></thead>
+<tbody id="dueTable"><tr><td colspan="8" class="empty">กำลังโหลด...</td></tr></tbody>
 </table>
 </div>
 
@@ -324,6 +368,7 @@ const ADMIN_PASSWORD="123456";
 const PROMPTPAY_NUMBER="0614417784";
 let adminLoggedIn=false;
 let payments=[];
+let paymentDues=[];
 let paymentRequests=[];
 let editingId=null;
 let deletingId=null;
@@ -388,6 +433,7 @@ async function loadPayments(){
     renderTable();
     renderAdminTable();
     updateStats();
+    if(adminLoggedIn) loadDueData();
 }
 
 function renderTable(){
@@ -635,6 +681,163 @@ async function submitSelfPayment(){
 function showPaymentStatus(message){showStatus(document.getElementById("paymentStatus"),message)}
 function showStatus(el,message){el.textContent=message;el.className="status show"}
 
+
+function normalizeDueDate(value){
+    if(!value) return "";
+    const v=String(value).trim();
+    // yyyy-mm-dd
+    if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(v)) return v;
+    // dd/mm/yyyy or dd-mm-yyyy (Thai Buddhist year is also accepted)
+    const m=v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if(m){
+        let y=Number(m[3]);
+        if(y>2400) y-=543;
+        return `${y}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+    }
+    const d=new Date(v);
+    if(!isNaN(d)) return d.toISOString().slice(0,10);
+    return "";
+}
+
+function splitBulkLine(line){
+    if(line.includes("\t")) return line.split("\t");
+    if(line.includes("|")) return line.split("|");
+    return line.split(",");
+}
+
+function parseBulkData(){
+    const raw=(document.getElementById("bulkData")?.value||"").trim();
+    if(!raw) return [];
+    const lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    if(!lines.length) return [];
+
+    const rows=lines.map(splitBulkLine).map(cols=>cols.map(x=>x.trim()));
+    const first=(rows[0]||[]).join(" ").toLowerCase();
+    const hasHeader=/เลขที่|student|name|ชื่อ|ห้อง|class|รายการ|payment|amount|จำนวนเงิน|กำหนด|due/.test(first);
+    if(hasHeader) rows.shift();
+
+    return rows.map((c,i)=>({
+        student_number:c[0]||"",
+        student_name:c[1]||"",
+        class_name:c[2]||"",
+        payment_type:c[3]||"เงินห้อง",
+        amount:Number(String(c[4]||"0").replace(/,/g,"").replace(/[^\d.-]/g,""))||0,
+        due_date:normalizeDueDate(c[5]||"")
+    })).filter(x=>x.student_name);
+}
+
+function statusForDue(due){
+    const matches=payments.filter(p=>{
+        const sameNumber=String(p.student_number||"").trim()===String(due.student_number||"").trim();
+        const sameName=String(p.student_name||"").trim()===String(due.student_name||"").trim();
+        const sameType=String(p.payment_type||"").trim()===String(due.payment_type||"").trim();
+        return sameType && (sameNumber ? sameNumber : sameName);
+    });
+    const paidAmount=matches.reduce((sum,p)=>sum+Number(p.amount||0),0);
+    const required=Number(due.amount||0);
+    if(required>0 && paidAmount>=required) return {text:"ชำระแล้ว",cls:"status-paid"};
+    const dueTime=due.due_date?new Date(due.due_date+"T23:59:59").getTime():NaN;
+    if(!isNaN(dueTime) && Date.now()>dueTime) return {text:"เกินกำหนด",cls:"status-overdue"};
+    return {text:"รอชำระ",cls:"status-unpaid"};
+}
+
+function renderBulkPreview(rows){
+    const el=document.getElementById("bulkPreview");
+    if(!el)return;
+    if(!rows.length){el.innerHTML='<div class="status show">ยังไม่พบข้อมูลที่นำเข้า</div>';return}
+    el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>เลขที่</th><th>ชื่อ</th><th>ห้อง</th><th>รายการ</th><th>ยอด</th><th>กำหนด</th></tr></thead><tbody>${
+        rows.slice(0,50).map(x=>`<tr>
+        <td>${escapeHtml(x.student_number||"-")}</td>
+        <td>${escapeHtml(x.student_name)}</td>
+        <td>${escapeHtml(x.class_name||"-")}</td>
+        <td>${escapeHtml(x.payment_type)}</td>
+        <td>฿${formatMoney(x.amount)}</td>
+        <td>${escapeHtml(x.due_date||"-")}</td>
+        </tr>`).join("")
+    }</tbody></table></div><div class="help-box">พบทั้งหมด <b>${rows.length}</b> รายการ${rows.length>50?" (แสดงตัวอย่าง 50 รายการแรก)":""}</div>`;
+}
+
+function previewBulkData(){
+    if(!adminLoggedIn)return;
+    const rows=parseBulkData();
+    renderBulkPreview(rows);
+}
+
+async function saveBulkData(){
+    if(!adminLoggedIn)return;
+    const rows=parseBulkData();
+    if(!rows.length){alert("กรุณาวางข้อมูลก่อน");return}
+    const invalid=rows.find(x=>!x.student_name || !x.payment_type || !(x.amount>0) || !x.due_date);
+    if(invalid){
+        alert("ข้อมูลไม่ครบ ต้องมี ชื่อนักเรียน / รายการ / จำนวนเงิน / กำหนดชำระ");
+        return;
+    }
+    const payload=rows.map(x=>({
+        student_number:x.student_number,
+        student_name:x.student_name,
+        class_name:x.class_name,
+        payment_type:x.payment_type,
+        amount:x.amount,
+        due_date:x.due_date
+    }));
+    const {error}=await db.from("payment_dues").upsert(payload,{onConflict:"student_number,payment_type"});
+    if(error){
+        alert("บันทึกไม่สำเร็จ: "+error.message+"\n\nตรวจสอบว่าคุณสร้างตาราง payment_dues แล้ว");
+        return;
+    }
+    alert(`บันทึกข้อมูลสำเร็จ ${rows.length} รายการ`);
+    document.getElementById("bulkData").value="";
+    document.getElementById("bulkPreview").innerHTML="";
+    await loadDueData();
+}
+
+async function loadDueData(){
+    if(!adminLoggedIn)return;
+    const table=document.getElementById("dueTable");
+    if(!table)return;
+    table.innerHTML='<tr><td colspan="8" class="empty">⏳ กำลังโหลด...</td></tr>';
+    const {data,error}=await db.from("payment_dues").select("*").order("due_date",{ascending:true});
+    if(error){
+        table.innerHTML='<tr><td colspan="8" class="empty">❌ '+escapeHtml(error.message)+'</td></tr>';
+        return;
+    }
+    paymentDues=data||[];
+    renderDueTable();
+}
+
+function renderDueTable(){
+    const table=document.getElementById("dueTable");
+    if(!table)return;
+    const search=(document.getElementById("dueSearch")?.value||"").toLowerCase().trim();
+    const result=paymentDues.filter(d=>[
+        d.student_number,d.student_name,d.class_name,d.payment_type,d.due_date
+    ].join(" ").toLowerCase().includes(search));
+    if(!result.length){
+        table.innerHTML='<tr><td colspan="8" class="empty">ยังไม่มีข้อมูลกำหนดชำระ</td></tr>';
+        return;
+    }
+    table.innerHTML=result.map(d=>{
+        const st=statusForDue(d);
+        return `<tr>
+        <td>${escapeHtml(d.student_number||"-")}</td>
+        <td>${escapeHtml(d.student_name)}</td>
+        <td>${escapeHtml(d.class_name||"-")}</td>
+        <td>${escapeHtml(d.payment_type)}</td>
+        <td>฿${formatMoney(d.amount)}</td>
+        <td>${escapeHtml(d.due_date||"-")}</td>
+        <td><span class="badge ${st.cls}">${st.text}</span></td>
+        <td><button class="btn btn-danger" onclick="deleteDue('${d.id}')">🗑️</button></td>
+        </tr>`;
+    }).join("");
+}
+
+async function deleteDue(id){
+    if(!adminLoggedIn || !confirm("ลบกำหนดชำระรายการนี้ใช่หรือไม่?"))return;
+    const {error}=await db.from("payment_dues").delete().eq("id",id);
+    if(error){alert("ลบไม่สำเร็จ: "+error.message);return}
+    await loadDueData();
+}
+
 async function loadPaymentRequests(){
     if(!adminLoggedIn)return;
     const table=document.getElementById("requestTable");
@@ -699,6 +902,7 @@ async function approveRequest(){
     closeModal("requestModal");
     await loadPayments();
     await loadPaymentRequests();
+    await loadDueData();
 }
 
 async function rejectRequest(){
